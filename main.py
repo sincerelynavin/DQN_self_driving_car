@@ -118,9 +118,9 @@ class Car:
         left_top = [self.center[0] + math.cos(math.radians(360 - (self.angle + 30))) * length,
                     self.center[1] + math.sin(math.radians(360 - (self.angle + 30))) * length]
         right_top = [self.center[0] + math.cos(math.radians(360 - (self.angle + 150))) * length,
-                     self.center[1] + math.sin(math.radians(360 - (self.angle + 150))) * length]
+                    self.center[1] + math.sin(math.radians(360 - (self.angle + 150))) * length]
         left_bottom = [self.center[0] + math.cos(math.radians(360 - (self.angle + 210))) * length,
-                       self.center[1] + math.sin(math.radians(360 - (self.angle + 210))) * length]
+                    self.center[1] + math.sin(math.radians(360 - (self.angle + 210))) * length]
         right_bottom = [self.center[0] + math.cos(math.radians(360 - (self.angle + 330))) * length,
                         self.center[1] + math.sin(math.radians(360 - (self.angle + 330))) * length]
         self.corners = [left_top, right_top, left_bottom, right_bottom]
@@ -132,6 +132,12 @@ class Car:
 
         # Check distances to obstacles in specific directions
         self.check_radar_distances(game_map)
+
+        # Check if any radar distance is less than 20
+        for dist in self.radars:
+            if dist[1] < 15:
+                self.alive = False
+                break
         
     def rotate_center(self, image, angle):
         rectangle = image.get_rect()
@@ -165,6 +171,7 @@ class Car:
             radar_distances[self.get_radar_name(radar_angle)] = dist
 
         print("Radar Distances:", radar_distances)
+
 
     def get_radar_name(self, angle):
         if angle == -45:
