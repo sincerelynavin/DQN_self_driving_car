@@ -7,7 +7,7 @@ WIDTH = 1920
 HEIGHT = 1080
 CAR_SIZE_X = 60    
 CAR_SIZE_Y = 60
-BORDER_COLOR = (255, 255, 255, 255) # Color To Crash on Hit
+BOUNDARY_COLOR = (255, 255, 255)  # White
 
 class Car:
     def __init__(self):
@@ -16,7 +16,7 @@ class Car:
         self.rotated_sprite = self.sprite 
         self.position = [830, 920] # Starting Position
         self.angle = 0
-        self.speed = 0  # Start with 0 speed
+        self.speed = 0
         self.speed_set = False
         self.center = [self.position[0] + CAR_SIZE_X / 2, self.position[1] + CAR_SIZE_Y / 2]
         self.radars = []
@@ -31,7 +31,8 @@ class Car:
     def check_collision(self, game_map):
         self.alive = True
         for point in self.corners:
-            if game_map.get_at((int(point[0]), int(point[1]))) == BORDER_COLOR:
+            # Check if any corner touches a white pixel (boundary)
+            if game_map.get_at((int(point[0]), int(point[1]))) == BOUNDARY_COLOR:
                 self.alive = False
                 break
 
@@ -40,7 +41,7 @@ class Car:
         x = int(self.center[0] + math.cos(math.radians(360 - (self.angle + degree))) * length)
         y = int(self.center[1] + math.sin(math.radians(360 - (self.angle + degree))) * length)
 
-        while not game_map.get_at((x, y)) == BORDER_COLOR and length < 300:
+        while game_map.get_at((x, y)) != BOUNDARY_COLOR and length < 300:
             length += 1
             x = int(self.center[0] + math.cos(math.radians(360 - (self.angle + degree))) * length)
             y = int(self.center[1] + math.sin(math.radians(360 - (self.angle + degree))) * length)
@@ -50,7 +51,7 @@ class Car:
 
     def update(self, game_map, keys):
         if not self.speed_set:
-            self.speed = 0  # Ensure speed starts at 0
+            self.speed = 0
             self.speed_set = True
 
         if keys[pygame.K_w]:
