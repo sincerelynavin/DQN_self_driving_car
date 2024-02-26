@@ -304,7 +304,7 @@ def main():
         car.draw(screen, respawn_counter, speed, acceleration, turning_angle)  # Pass speed, acceleration, and turning angle to draw method
 
         pygame.display.flip()
-        clock.tick(60)
+        clock.tick(165)
 
         prev_speed = speed
 
