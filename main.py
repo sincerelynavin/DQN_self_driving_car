@@ -16,7 +16,7 @@ class Car:
         self.rotated_sprite = self.sprite 
         self.position = [830, 920] # Starting Position
         self.angle = 0
-        self.speed = 0
+        self.speed = 0  # Start with 0 speed
         self.speed_set = False
         self.center = [self.position[0] + CAR_SIZE_X / 2, self.position[1] + CAR_SIZE_Y / 2]
         self.radars = []
@@ -50,7 +50,7 @@ class Car:
 
     def update(self, game_map, keys):
         if not self.speed_set:
-            self.speed = 20
+            self.speed = 0  # Ensure speed starts at 0
             self.speed_set = True
 
         if keys[pygame.K_w]:
