@@ -9,9 +9,10 @@ CAR_SIZE_X = 40
 CAR_SIZE_Y = 40
 BORDER_COLOR = (255, 255, 255, 255)  # Color To Crash on Hit
 GREEN_COLOR = (34, 177, 76)  # Color of the green spawn area
-RED_COLOR = (237, 28, 36)  # Color for radar detection
+RED_COLOR = (255, 127, 39)  # Color for radar detection
 #text_color = (255, 127, 39)
-
+#red = (237,28,36)
+#grass = (55, 126, 71)
 class Car:
     def __init__(self, game_map):
         self.sprite = pygame.image.load('car6.png').convert()
@@ -110,7 +111,7 @@ class Car:
         return intersection_point
 
 
-    def draw(self, screen, respawn_counter):
+    def draw(self, screen, respawn_counter, speed, acceleration, turning_angle):
         rotated_center = (self.position[0] + CAR_SIZE_X / 2, self.position[1] + CAR_SIZE_Y / 2)
         screen.blit(self.rotated_sprite, self.position)
         self.center = rotated_center  # Update center based on rotated position
@@ -128,13 +129,22 @@ class Car:
         distance_text = font.render("Forward Distance: {:.2f}".format(self.distance_forward), True, text_color)
         screen.blit(distance_text, (10, 130))  # Adjust position as needed
 
+        # Render speed, acceleration, and turning angle on the screen
+        speed_text = font.render("Speed: {:.2f}".format(speed), True, text_color)
+        screen.blit(speed_text, (10, 160))
+        
+        acceleration_text = font.render("Acceleration: {:.2f}".format(acceleration), True, text_color)
+        screen.blit(acceleration_text, (10, 190))
+        
+        angle_text = font.render("Turning Angle: {:.2f}".format(turning_angle), True, text_color)
+        screen.blit(angle_text, (10, 220))
 
 
     def check_collision(self, game_map):
         self.alive = True
         for point in self.corners:
             if game_map.get_at((int(point[0]), int(point[1]))) == BORDER_COLOR or \
-                    game_map.get_at((int(point[0]), int(point[1]))) == (255, 255, 255):  # Modified condition to check for white pixel as well
+                    game_map.get_at((int(point[0]), int(point[1]))) == (55, 126, 71):  # Modified condition to check for white pixel as well
                 self.alive = False
                 break
 
@@ -143,13 +153,15 @@ class Car:
         x = int(self.center[0] + math.cos(math.radians(360 - (self.angle + degree))) * length)
         y = int(self.center[1] + math.sin(math.radians(360 - (self.angle + degree))) * length)
 
-        while not game_map.get_at((x, y)) == BORDER_COLOR and length < 300:
+        while 0 <= x < game_map.get_width() and 0 <= y < game_map.get_height() \
+                and not game_map.get_at((x, y)) == BORDER_COLOR and not game_map.get_at((x, y)) == (55, 126, 71):
             length += 1
             x = int(self.center[0] + math.cos(math.radians(360 - (self.angle + degree))) * length)
             y = int(self.center[1] + math.sin(math.radians(360 - (self.angle + degree))) * length)
 
         dist = int(math.sqrt(math.pow(x - self.center[0], 2) + math.pow(y - self.center[1], 2)))
         self.radars.append([(x, y), dist])
+
 
     def update(self, game_map, keys):
         if not self.speed_set:
@@ -273,6 +285,7 @@ def main():
 
     running = True
     respawn_counter = 0  # Counter to keep track of respawn iterations
+    prev_speed = 0
 
     while running:
         for event in pygame.event.get():
@@ -282,12 +295,18 @@ def main():
         keys = pygame.key.get_pressed()
         car.update(game_map, keys)
 
+        speed = car.speed
+        acceleration = speed - prev_speed
+        turning_angle = car.angle
+        
         screen.fill((0, 0, 0))
         screen.blit(game_map, (0, 0))
-        car.draw(screen, respawn_counter)  # Pass respawn counter to draw method
+        car.draw(screen, respawn_counter, speed, acceleration, turning_angle)  # Pass speed, acceleration, and turning angle to draw method
 
         pygame.display.flip()
         clock.tick(60)
+
+        prev_speed = speed
 
         if not car.alive:
             respawn_counter += 1
@@ -300,7 +319,6 @@ def main():
 
     pygame.quit()
     sys.exit()
-
 
 
 
