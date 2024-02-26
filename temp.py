@@ -10,6 +10,7 @@ CAR_SIZE_Y = 40
 BORDER_COLOR = (255, 255, 255, 255)  # Color To Crash on Hit
 GREEN_COLOR = (34, 177, 76)  # Color of the green spawn area
 RED_COLOR = (237, 28, 36)  # Color for radar detection
+#text_color = (255, 127, 39)
 
 class Car:
     def __init__(self, game_map):
@@ -96,11 +97,11 @@ class Car:
         self.center = rotated_center  # Update center based on rotated position
         self.draw_radar(screen)
         
-        # Render radar distances on the screen
-        font = pygame.font.Font(None, 36)
-        text_color = (255, 255, 255)  # White color for text
-        radar_distances_text = font.render("Radar Distances: {}".format(self.radars), True, text_color)
-        screen.blit(radar_distances_text, (10, 10))  # Adjust position as needed
+        # # Render radar distances on the screen
+        # font = pygame.font.Font(None, 36)
+        # text_color = (255, 255, 255)  # White color for text
+        # radar_distances_text = font.render("Radar Distances: {}".format(self.radars), True, text_color)
+        # screen.blit(radar_distances_text, (10, 10))  # Adjust position as needed
 
 
     def check_collision(self, game_map):
@@ -242,6 +243,9 @@ def main():
     car = Car(game_map)
 
     running = True
+    distance_travelled_forward = 0
+    distance_travelled_backward = 0
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -250,9 +254,28 @@ def main():
         keys = pygame.key.get_pressed()
         car.update(game_map, keys)
 
+        # Calculate distance travelled and update variables
+        if keys[pygame.K_w]:
+            distance_travelled_forward += abs(car.speed)
+        elif keys[pygame.K_s]:
+            distance_travelled_backward += abs(car.speed)
+
+        total_distance = distance_travelled_forward - distance_travelled_backward
+
         screen.fill((0, 0, 0))
         screen.blit(game_map, (0, 0))
         car.draw(screen)
+
+        # Display distance travelled
+        font = pygame.font.Font(None, 36)
+        text_color = (255, 127, 39) # White color for text
+        forward_text = font.render("Forward Distance: {}".format(distance_travelled_forward), True, text_color)
+        backward_text = font.render("Backward Distance: {}".format(distance_travelled_backward), True, text_color)
+        total_text = font.render("Total Distance (Forward - Backward): {}".format(total_distance), True, text_color)
+
+        screen.blit(forward_text, (10, 10))  
+        screen.blit(backward_text, (10, 40))  
+        screen.blit(total_text, (10, 70))  
 
         pygame.display.flip()
         clock.tick(60)
@@ -262,7 +285,6 @@ def main():
 
     pygame.quit()
     sys.exit()
-
 
 if __name__ == "__main__":
     main()

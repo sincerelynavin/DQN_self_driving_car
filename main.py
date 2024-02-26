@@ -10,6 +10,7 @@ CAR_SIZE_Y = 40
 BORDER_COLOR = (255, 255, 255, 255)  # Color To Crash on Hit
 GREEN_COLOR = (34, 177, 76)  # Color of the green spawn area
 RED_COLOR = (237, 28, 36)  # Color for radar detection
+#text_color = (255, 127, 39)
 
 class Car:
     def __init__(self, game_map):
@@ -45,21 +46,37 @@ class Car:
         return default_position
 
     def draw_radar(self, screen):
-        for radar_info in self.radars:
-            radar_pos, _ = radar_info
-            
-            # Find the position where radar line intersects the boundary
-            intersection_point = self.find_intersection_with_boundary(radar_pos, screen)
-            
-            # Render radar distance near the intersection point
-            font = pygame.font.Font(None, 24)
-            text_color = (255, 127, 39)  # White color for text
-            radar_distance_text = font.render("Distance: {}".format(radar_info[1]), True, text_color)
-            screen.blit(radar_distance_text, (intersection_point[0] + 10, intersection_point[1] + 10))  # Adjust position as needed
+            for idx, radar_info in enumerate(self.radars):
+                radar_pos, _ = radar_info
+                
+                # Find the position where radar line intersects the boundary
+                intersection_point = self.find_intersection_with_boundary(radar_pos, screen)
+                
+                # Render radar distance near the intersection point
+                font = pygame.font.Font(None, 24)
+                text_color = (255, 127, 39)  # White color for text
+                radar_distance_text = font.render("Distance: {}".format(radar_info[1]), True, text_color)
+                screen.blit(radar_distance_text, (intersection_point[0] + 10, intersection_point[1] + 10))  # Adjust position as needed
 
-            # Draw radar line from car center to intersection point
-            pygame.draw.line(screen, RED_COLOR, self.center, intersection_point, 2)
-            
+                # Draw radar line from car center to intersection point
+                pygame.draw.line(screen, RED_COLOR, self.center, intersection_point, 2)
+                
+                # Print the position and distance of the radar line along with its direction
+                direction = self.get_radar_direction(idx)
+                # print("Radar Line {} ({}) Position: {}".format(idx, direction, radar_pos))
+                # print("Radar Line {} ({}) Intersection Point: {}".format(idx, direction, intersection_point))
+                print("Radar Line {} ({}) Distance: {}".format(idx, direction, radar_info[1]))
+
+    def get_radar_direction(self, idx):
+            directions = {
+                0: 'Front',
+                1: 'Front-Left',
+                2: 'Left',
+                3: 'Back-Left',
+                4: 'Back'
+            }
+            return directions.get(idx, 'Unknown')
+
     def find_intersection_with_boundary(self, radar_pos, screen):
         # Extract radar position coordinates
         radar_x, radar_y = radar_pos
@@ -98,7 +115,7 @@ class Car:
         
         # # Render radar distances on the screen
         # font = pygame.font.Font(None, 36)
-        # text_color = (255, 127, 39)  # White color for text
+        # text_color = (255, 255, 255)  # White color for text
         # radar_distances_text = font.render("Radar Distances: {}".format(self.radars), True, text_color)
         # screen.blit(radar_distances_text, (10, 10))  # Adjust position as needed
 
@@ -197,15 +214,14 @@ class Car:
 
     def check_radar_distances(self, game_map):
         radar_distances = {
-            'front-left': None,
-            'front-center': None,
-            'front-right': None,
-            'back-left': None,
-            'back-center': None,
-            'back-right': None
+            'front': None,
+            'back': None,
+            'left': None,
+            'right': None,
+            'center': None
         }
 
-        for radar_angle in [-45, 0, 45, 135, 180, 225]:
+        for radar_angle in [-45, 0, 45, 90, 135]:
             length = 0
             x = int(self.center[0] + math.cos(math.radians(360 - (self.angle + radar_angle))) * length)
             y = int(self.center[1] + math.sin(math.radians(360 - (self.angle + radar_angle))) * length)
@@ -218,22 +234,20 @@ class Car:
             dist = int(math.sqrt(math.pow(x - self.center[0], 2) + math.pow(y - self.center[1], 2)))
             radar_distances[self.get_radar_name(radar_angle)] = dist
 
-        print("Radar Distances:", radar_distances)
+        # print("Radar Distances:", radar_distances)
 
 
     def get_radar_name(self, angle):
-        if angle == -45:
-            return 'front-left'
+        if angle == -45 or angle == 45:
+            return 'front'
         elif angle == 0:
-            return 'front-center'
-        elif angle == 45:
-            return 'front-right'
-        elif angle == 135:
-            return 'back-left'
+            return 'center'
+        elif angle == 90 or angle == 135:
+            return 'left'
+        elif angle == -90 or angle == -135:
+            return 'right'
         elif angle == 180:
-            return 'back-center'
-        elif angle == 225:
-            return 'back-right'
+            return 'back'
 
 
 def main():
