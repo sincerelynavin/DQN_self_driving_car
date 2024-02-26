@@ -44,8 +44,16 @@ class Car:
         print("No green found, setting default position:", default_position)  # Debug: Print default position
         return default_position
 
+    def draw_radar(self, screen):
+        for radar_info in self.radars:
+            radar_pos, _ = radar_info
+            pygame.draw.line(screen, RED_COLOR, self.center, radar_pos, 2)
+
     def draw(self, screen):
+        rotated_center = (self.position[0] + CAR_SIZE_X / 2, self.position[1] + CAR_SIZE_Y / 2)
         screen.blit(self.rotated_sprite, self.position)
+        self.center = rotated_center  # Update center based on rotated position
+        self.draw_radar(screen)
 
     def check_collision(self, game_map):
         self.alive = True
