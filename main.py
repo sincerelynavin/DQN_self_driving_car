@@ -22,6 +22,9 @@ class Car:
         self.speed_set = False
         self.alive = True
         self.distance = 0
+        self.distance_forward = 0
+        self.distance_backward = 0
+        self.total_distance = 0
         self.time = 0
         self.radars = []  # Store radar information here
 
@@ -113,11 +116,18 @@ class Car:
         self.center = rotated_center  # Update center based on rotated position
         self.draw_radar(screen)
         
-        # # Render radar distances on the screen
-        # font = pygame.font.Font(None, 36)
-        # text_color = (255, 255, 255)  # White color for text
-        # radar_distances_text = font.render("Radar Distances: {}".format(self.radars), True, text_color)
-        # screen.blit(radar_distances_text, (10, 10))  # Adjust position as needed
+        # Render distance traveled on the screen
+        font = pygame.font.Font(None, 24)
+        text_color = (255, 127, 39)  # White color for text
+
+        distance_text = font.render("Forward Distance: {:.2f}".format(self.distance_forward), True, text_color)
+        screen.blit(distance_text, (10, 10))
+
+        distance_text = font.render("Backward Distance: {:.2f}".format(self.distance_backward), True, text_color)
+        screen.blit(distance_text, (10, 40))
+
+        distance_text = font.render("Total Distance: {:.2f}".format(self.total_distance), True, text_color)
+        screen.blit(distance_text, (10, 70))
 
 
     def check_collision(self, game_map):
@@ -146,11 +156,16 @@ class Car:
             self.speed = 0  # Ensure speed starts at 0
             self.speed_set = True
 
-        # Acceleration based on key presses
+        # Update position based on speed and angle
         if keys[pygame.K_w]:
             self.speed += 0.05
+            self.distance_forward += abs(self.speed)  # Track distance traveled forward
         if keys[pygame.K_s]:
             self.speed -= 0.05
+            self.distance_backward += abs(self.speed)  # Track distance traveled backward
+
+        # Additional code to calculate total distance
+        self.total_distance = self.distance_forward - self.distance_backward
 
         # Rotation based on key presses
         if keys[pygame.K_a]:
