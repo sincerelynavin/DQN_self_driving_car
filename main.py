@@ -96,11 +96,11 @@ class Car:
         self.center = rotated_center  # Update center based on rotated position
         self.draw_radar(screen)
         
-        # Render radar distances on the screen
-        font = pygame.font.Font(None, 36)
-        text_color = (255, 255, 255)  # White color for text
-        radar_distances_text = font.render("Radar Distances: {}".format(self.radars), True, text_color)
-        screen.blit(radar_distances_text, (10, 10))  # Adjust position as needed
+        # # Render radar distances on the screen
+        # font = pygame.font.Font(None, 36)
+        # text_color = (255, 127, 39)  # White color for text
+        # radar_distances_text = font.render("Radar Distances: {}".format(self.radars), True, text_color)
+        # screen.blit(radar_distances_text, (10, 10))  # Adjust position as needed
 
 
     def check_collision(self, game_map):
