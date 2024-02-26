@@ -116,22 +116,18 @@ class Car:
         self.center = rotated_center  # Update center based on rotated position
         self.draw_radar(screen)
         
-        # Render distance traveled on the screen
+        # Render respawn counter on the screen
         font = pygame.font.Font(None, 24)
         text_color = (255, 127, 39)  # White color for text
-
-        distance_text = font.render("Forward Distance: {:.2f}".format(self.distance_forward), True, text_color)
-        screen.blit(distance_text, (10, 10))
-
-        distance_text = font.render("Backward Distance: {:.2f}".format(self.distance_backward), True, text_color)
-        screen.blit(distance_text, (10, 40))
-
-        distance_text = font.render("Total Distance: {:.2f}".format(self.total_distance), True, text_color)
-        screen.blit(distance_text, (10, 70))
         
-        # Render respawn counter on the screen
+        # Render respawn counter
         respawn_text = font.render("Respawn Counter: {}".format(respawn_counter), True, text_color)
         screen.blit(respawn_text, (10, 100))
+
+        # Render forward distance on the screen
+        distance_text = font.render("Forward Distance: {:.2f}".format(self.distance_forward), True, text_color)
+        screen.blit(distance_text, (10, 130))  # Adjust position as needed
+
 
 
     def check_collision(self, game_map):
@@ -164,9 +160,11 @@ class Car:
         if keys[pygame.K_w]:
             self.speed += 0.05
             self.distance_forward += abs(self.speed)  # Track distance traveled forward
-        if keys[pygame.K_s]:
+        elif keys[pygame.K_s]:
             self.speed -= 0.05
-            self.distance_backward += abs(self.speed)  # Track distance traveled backward
+            # Track distance traveled backward only if the car is reversing
+            if self.speed < 0:
+                self.distance_backward += abs(self.speed)
 
         # Additional code to calculate total distance
         self.total_distance = self.distance_forward - self.distance_backward
@@ -191,8 +189,6 @@ class Car:
         self.position[0] = max(self.position[0], 20)
         self.position[0] = min(self.position[0], WIDTH - 120)
 
-        self.distance += abs(self.speed)
-
         self.position[1] += math.sin(math.radians(360 - self.angle)) * self.speed
         self.position[1] = max(self.position[1], 20)
         self.position[1] = min(self.position[1], HEIGHT - 120)
@@ -214,14 +210,12 @@ class Car:
         for d in range(-90, 120, 45):
             self.check_radar(d, game_map)
 
-        # Check distances to obstacles in specific directions
-        self.check_radar_distances(game_map)
-
         # Check if any radar distance is less than 20
         for dist in self.radars:
             if dist[1] < 15:
                 self.alive = False
                 break
+
         
     def rotate_center(self, image, angle):
         rectangle = image.get_rect()

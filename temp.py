@@ -10,6 +10,7 @@ CAR_SIZE_Y = 40
 BORDER_COLOR = (255, 255, 255, 255)  # Color To Crash on Hit
 GREEN_COLOR = (34, 177, 76)  # Color of the green spawn area
 RED_COLOR = (237, 28, 36)  # Color for radar detection
+BLUE_LINE_COLOR = (63, 72, 204)  # Color of the blue line
 #text_color = (255, 127, 39)
 
 class Car:
@@ -22,13 +23,23 @@ class Car:
         self.speed_set = False
         self.alive = True
         self.distance = 0
+        self.distance_forward = 0
+        self.distance_backward = 0
+        self.total_distance = 0
+        self.respawn_counter = 0  # Initialize respawn counter
         self.time = 0
+        self.timer = 0
         self.radars = []  # Store radar information here
 
         # Find initial position within green spawn area
         self.position = self.find_spawn_position(game_map)
         self.center = [self.position[0] + CAR_SIZE_X / 2, self.position[1] + CAR_SIZE_Y / 2]
         self.corners = []  # Store corner points of the car here
+
+        # Timer variables
+        self.timer_started = False
+        self.timer_reset = False
+        self.timer = 0
 
     def find_spawn_position(self, game_map):
         # Loop through the map to find a green area to spawn the car
@@ -46,21 +57,37 @@ class Car:
         return default_position
 
     def draw_radar(self, screen):
-        for radar_info in self.radars:
-            radar_pos, _ = radar_info
-            
-            # Find the position where radar line intersects the boundary
-            intersection_point = self.find_intersection_with_boundary(radar_pos, screen)
-            
-            # Render radar distance near the intersection point
-            font = pygame.font.Font(None, 24)
-            text_color = (255, 127, 39)  # White color for text
-            radar_distance_text = font.render("Distance: {}".format(radar_info[1]), True, text_color)
-            screen.blit(radar_distance_text, (intersection_point[0] + 10, intersection_point[1] + 10))  # Adjust position as needed
+            for idx, radar_info in enumerate(self.radars):
+                radar_pos, _ = radar_info
+                
+                # Find the position where radar line intersects the boundary
+                intersection_point = self.find_intersection_with_boundary(radar_pos, screen)
+                
+                # Render radar distance near the intersection point
+                font = pygame.font.Font(None, 24)
+                text_color = (255, 127, 39)  # White color for text
+                radar_distance_text = font.render("Distance: {}".format(radar_info[1]), True, text_color)
+                screen.blit(radar_distance_text, (intersection_point[0] + 10, intersection_point[1] + 10))  # Adjust position as needed
 
-            # Draw radar line from car center to intersection point
-            pygame.draw.line(screen, RED_COLOR, self.center, intersection_point, 2)
-            
+                # Draw radar line from car center to intersection point
+                pygame.draw.line(screen, RED_COLOR, self.center, intersection_point, 2)
+                
+                # Print the position and distance of the radar line along with its direction
+                direction = self.get_radar_direction(idx)
+                # print("Radar Line {} ({}) Position: {}".format(idx, direction, radar_pos))
+                # print("Radar Line {} ({}) Intersection Point: {}".format(idx, direction, intersection_point))
+                print("Radar Line {} ({}) Distance: {}".format(idx, direction, radar_info[1]))
+
+    def get_radar_direction(self, idx):
+            directions = {
+                0: 'Front',
+                1: 'Front-Left',
+                2: 'Left',
+                3: 'Back-Left',
+                4: 'Back'
+            }
+            return directions.get(idx, 'Unknown')
+
     def find_intersection_with_boundary(self, radar_pos, screen):
         # Extract radar position coordinates
         radar_x, radar_y = radar_pos
@@ -91,17 +118,27 @@ class Car:
         return intersection_point
 
 
-    def draw(self, screen):
+    def draw(self, screen, respawn_counter, timer):
         rotated_center = (self.position[0] + CAR_SIZE_X / 2, self.position[1] + CAR_SIZE_Y / 2)
         screen.blit(self.rotated_sprite, self.position)
         self.center = rotated_center  # Update center based on rotated position
         self.draw_radar(screen)
         
-        # # Render radar distances on the screen
-        # font = pygame.font.Font(None, 36)
-        # text_color = (255, 255, 255)  # White color for text
-        # radar_distances_text = font.render("Radar Distances: {}".format(self.radars), True, text_color)
-        # screen.blit(radar_distances_text, (10, 10))  # Adjust position as needed
+        # Render respawn counter on the screen
+        font = pygame.font.Font(None, 24)
+        text_color = (255, 127, 39)  # White color for text
+        
+        # Render respawn counter
+        respawn_text = font.render("Respawn Counter: {}".format(respawn_counter), True, text_color)
+        screen.blit(respawn_text, (10, 100))
+
+        # Render forward distance on the screen
+        distance_text = font.render("Forward Distance: {:.2f}".format(self.distance_forward), True, text_color)
+        screen.blit(distance_text, (10, 130))  # Adjust position as needed
+
+        # Render timer on the screen
+        timer_text = font.render("Timer: {:.2f}".format(timer), True, text_color)
+        screen.blit(timer_text, (10, 160))  # Adjust position as needed
 
 
     def check_collision(self, game_map):
@@ -125,16 +162,23 @@ class Car:
         dist = int(math.sqrt(math.pow(x - self.center[0], 2) + math.pow(y - self.center[1], 2)))
         self.radars.append([(x, y), dist])
 
-    def update(self, game_map, keys):
+    def update(self, game_map, keys, respawn_counter):
         if not self.speed_set:
             self.speed = 0  # Ensure speed starts at 0
             self.speed_set = True
 
-        # Acceleration based on key presses
+        # Update position based on speed and angle
         if keys[pygame.K_w]:
             self.speed += 0.05
-        if keys[pygame.K_s]:
+            self.distance_forward += abs(self.speed)  # Track distance traveled forward
+        elif keys[pygame.K_s]:
             self.speed -= 0.05
+            # Track distance traveled backward only if the car is reversing
+            if self.speed < 0:
+                self.distance_backward += abs(self.speed)
+
+        # Additional code to calculate total distance
+        self.total_distance = self.distance_forward - self.distance_backward
 
         # Rotation based on key presses
         if keys[pygame.K_a]:
@@ -155,8 +199,6 @@ class Car:
         self.position[0] += math.cos(math.radians(360 - self.angle)) * self.speed
         self.position[0] = max(self.position[0], 20)
         self.position[0] = min(self.position[0], WIDTH - 120)
-
-        self.distance += abs(self.speed)
 
         self.position[1] += math.sin(math.radians(360 - self.angle)) * self.speed
         self.position[1] = max(self.position[1], 20)
@@ -179,14 +221,33 @@ class Car:
         for d in range(-90, 120, 45):
             self.check_radar(d, game_map)
 
-        # Check distances to obstacles in specific directions
-        self.check_radar_distances(game_map)
-
         # Check if any radar distance is less than 20
         for dist in self.radars:
             if dist[1] < 15:
                 self.alive = False
                 break
+        
+        if not self.alive:
+            self.timer = 0
+            respawn_counter += 1
+            print("Car died. Respawned. Iteration:", respawn_counter)
+            self.alive = True  # Make the car alive again
+            
+        # Check if the car passes the blue line
+        if game_map.get_at((int(self.center[0]), int(self.center[1]))) == BLUE_LINE_COLOR:
+            if not self.timer_started:
+                self.timer_started = True
+                self.timer_reset = False
+            else:
+                if not self.timer_reset:
+                    self.timer_reset = True
+                    self.timer = 0
+        else:
+            if self.timer_started and not self.timer_reset:
+                self.timer += 1 / 60  # Assuming the game runs at 60 frames per second
+
+        if game_map.get_at((int(self.center[0]), int(self.center[1]))) == (63, 72, 204):
+            self.timer = 0  # Reset the timer
         
     def rotate_center(self, image, angle):
         rectangle = image.get_rect()
@@ -218,7 +279,7 @@ class Car:
             dist = int(math.sqrt(math.pow(x - self.center[0], 2) + math.pow(y - self.center[1], 2)))
             radar_distances[self.get_radar_name(radar_angle)] = dist
 
-        print("Radar Distances:", radar_distances)
+        # print("Radar Distances:", radar_distances)
 
 
     def get_radar_name(self, angle):
@@ -243,8 +304,8 @@ def main():
     car = Car(game_map)
 
     running = True
-    distance_travelled_forward = 0
-    distance_travelled_backward = 0
+    respawn_counter = 0  # Counter to keep track of respawn iterations
+    timer = 0
 
     while running:
         for event in pygame.event.get():
@@ -252,36 +313,27 @@ def main():
                 running = False
 
         keys = pygame.key.get_pressed()
-        car.update(game_map, keys)
-
-        # Calculate distance travelled and update variables
-        if keys[pygame.K_w]:
-            distance_travelled_forward += abs(car.speed)
-        elif keys[pygame.K_s]:
-            distance_travelled_backward += abs(car.speed)
-
-        total_distance = distance_travelled_forward - distance_travelled_backward
+        car.update(game_map, keys, respawn_counter)  # Pass respawn counter to update method
 
         screen.fill((0, 0, 0))
         screen.blit(game_map, (0, 0))
-        car.draw(screen)
-
-        # Display distance travelled
-        font = pygame.font.Font(None, 36)
-        text_color = (255, 127, 39) # White color for text
-        forward_text = font.render("Forward Distance: {}".format(distance_travelled_forward), True, text_color)
-        backward_text = font.render("Backward Distance: {}".format(distance_travelled_backward), True, text_color)
-        total_text = font.render("Total Distance (Forward - Backward): {}".format(total_distance), True, text_color)
-
-        screen.blit(forward_text, (10, 10))  
-        screen.blit(backward_text, (10, 40))  
-        screen.blit(total_text, (10, 70))  
+        car.draw(screen, respawn_counter, timer)  # Pass respawn counter and timer to draw method
 
         pygame.display.flip()
         clock.tick(60)
 
         if not car.alive:
-            running = False
+            respawn_counter += 1
+            print("Car died. Respawned. Iteration:", respawn_counter)
+            car = Car(game_map)  # Respawn the car
+            car.speed_set = True  # Ensure speed is reset
+            car.distance = 0  # Reset distance
+            car.distance_forward = 0  # Reset forward distance
+            car.distance_backward = 0  # Reset backward distance
+
+        # Increment timer if it's started
+        if car.timer_started:
+            timer += 1 / 60  # Assuming the game runs at 60 frames per second
 
     pygame.quit()
     sys.exit()
