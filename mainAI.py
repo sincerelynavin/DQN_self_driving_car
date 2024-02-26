@@ -4,19 +4,22 @@ import math
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import numpy as np
+from collections import namedtuple, deque
 import random
-from collections import namedtuple
 
 # Constants
 WIDTH = 1920
 HEIGHT = 1080
 CAR_SIZE_X = 40
 CAR_SIZE_Y = 40
-BORDER_COLOR = (255, 255, 255, 255)  # Color To Crash on Hit
-GREEN_COLOR = (34, 177, 76)  # Color of the green spawn area
-RED_COLOR = (237, 28, 36)  # Color for radar detection
+BORDER_COLOR = (255, 255, 255, 255)
+GREEN_COLOR = (34, 177, 76)
+RED_COLOR = (237, 28, 36)
 
-# Define the DQN model
+Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
+
+# Deep Q-Network (DQN) Model
 class DQN(nn.Module):
     def __init__(self, input_size, output_size):
         super(DQN, self).__init__()
@@ -30,28 +33,55 @@ class DQN(nn.Module):
         x = self.fc3(x)
         return x
 
-# Define the Replay Memory
-Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
+# DQN Agent
+class DQNAgent:
+    def __init__(self, input_size, output_size):
+        self.policy_net = DQN(input_size, output_size)
+        self.target_net = DQN(input_size, output_size)
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+        self.target_net.eval()
+        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=0.001)
+        self.memory = deque(maxlen=10000)
+        self.steps_done = 0
 
-class ReplayMemory(object):
-    def __init__(self, capacity):
-        self.capacity = capacity
-        self.memory = []
-        self.position = 0
+    def select_action(self, state):
+        sample = random.random()
+        eps_threshold = EPS_END + (EPS_START - EPS_END) * \
+            np.exp(-1. * self.steps_done / EPS_DECAY)
+        self.steps_done += 1
+        if sample > eps_threshold:
+            with torch.no_grad():
+                return self.policy_net(state).max(1)[1].view(1, 1)
+        else:
+            return torch.tensor([[random.randrange(output_size)]], dtype=torch.long)
 
-    def push(self, *args):
-        if len(self.memory) < self.capacity:
-            self.memory.append(None)
-        self.memory[self.position] = Transition(*args)
-        self.position = (self.position + 1) % self.capacity
+    def optimize_model(self):
+        if len(self.memory) < BATCH_SIZE:
+            return
+        transitions = random.sample(self.memory, BATCH_SIZE)
+        batch = Transition(*zip(*transitions))
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
+                                          batch.next_state)), device=device, dtype=torch.bool)
+        non_final_next_states = torch.cat([s for s in batch.next_state
+                                                    if s is not None])
+        state_batch = torch.cat(batch.state)
+        action_batch = torch.cat(batch.action)
+        reward_batch = torch.cat(batch.reward)
 
-    def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
+        state_action_values = self.policy_net(state_batch).gather(1, action_batch)
 
-    def __len__(self):
-        return len(self.memory)
+        next_state_values = torch.zeros(BATCH_SIZE, device=device)
+        next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
+        expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
-# Initialize Pygame environment and car object
+        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        for param in self.policy_net.parameters():
+            param.grad.data.clamp_(-1, 1)
+        self.optimizer.step()
+
 
 class Car:
     def __init__(self, game_map):
@@ -63,6 +93,9 @@ class Car:
         self.speed_set = False
         self.alive = True
         self.distance = 0
+        self.distance_forward = 0
+        self.distance_backward = 0
+        self.total_distance = 0
         self.time = 0
         self.radars = []  # Store radar information here
 
@@ -87,21 +120,37 @@ class Car:
         return default_position
 
     def draw_radar(self, screen):
-        for radar_info in self.radars:
-            radar_pos, _ = radar_info
-            
-            # Find the position where radar line intersects the boundary
-            intersection_point = self.find_intersection_with_boundary(radar_pos, screen)
-            
-            # Render radar distance near the intersection point
-            font = pygame.font.Font(None, 24)
-            text_color = (255, 127, 39)  # White color for text
-            radar_distance_text = font.render("Distance: {}".format(radar_info[1]), True, text_color)
-            screen.blit(radar_distance_text, (intersection_point[0] + 10, intersection_point[1] + 10))  # Adjust position as needed
+            for idx, radar_info in enumerate(self.radars):
+                radar_pos, _ = radar_info
+                
+                # Find the position where radar line intersects the boundary
+                intersection_point = self.find_intersection_with_boundary(radar_pos, screen)
+                
+                # Render radar distance near the intersection point
+                font = pygame.font.Font(None, 24)
+                text_color = (255, 127, 39)  # White color for text
+                radar_distance_text = font.render("Distance: {}".format(radar_info[1]), True, text_color)
+                screen.blit(radar_distance_text, (intersection_point[0] + 10, intersection_point[1] + 10))  # Adjust position as needed
 
-            # Draw radar line from car center to intersection point
-            pygame.draw.line(screen, RED_COLOR, self.center, intersection_point, 2)
-            
+                # Draw radar line from car center to intersection point
+                pygame.draw.line(screen, RED_COLOR, self.center, intersection_point, 2)
+                
+                # Print the position and distance of the radar line along with its direction
+                direction = self.get_radar_direction(idx)
+                # print("Radar Line {} ({}) Position: {}".format(idx, direction, radar_pos))
+                # print("Radar Line {} ({}) Intersection Point: {}".format(idx, direction, intersection_point))
+                print("Radar Line {} ({}) Distance: {}".format(idx, direction, radar_info[1]))
+
+    def get_radar_direction(self, idx):
+            directions = {
+                0: 'Front',
+                1: 'Front-Left',
+                2: 'Left',
+                3: 'Back-Left',
+                4: 'Back'
+            }
+            return directions.get(idx, 'Unknown')
+
     def find_intersection_with_boundary(self, radar_pos, screen):
         # Extract radar position coordinates
         radar_x, radar_y = radar_pos
@@ -138,6 +187,20 @@ class Car:
         self.center = rotated_center  # Update center based on rotated position
         self.draw_radar(screen)
         
+        # Render distance traveled on the screen
+        font = pygame.font.Font(None, 24)
+        text_color = (255, 127, 39)  # White color for text
+
+        distance_text = font.render("Forward Distance: {:.2f}".format(self.distance_forward), True, text_color)
+        screen.blit(distance_text, (10, 10))
+
+        distance_text = font.render("Backward Distance: {:.2f}".format(self.distance_backward), True, text_color)
+        screen.blit(distance_text, (10, 40))
+
+        distance_text = font.render("Total Distance: {:.2f}".format(self.total_distance), True, text_color)
+        screen.blit(distance_text, (10, 70))
+
+
     def check_collision(self, game_map):
         self.alive = True
         for point in self.corners:
@@ -164,11 +227,16 @@ class Car:
             self.speed = 0  # Ensure speed starts at 0
             self.speed_set = True
 
-        # Acceleration based on key presses
+        # Update position based on speed and angle
         if keys[pygame.K_w]:
             self.speed += 0.05
+            self.distance_forward += abs(self.speed)  # Track distance traveled forward
         if keys[pygame.K_s]:
             self.speed -= 0.05
+            self.distance_backward += abs(self.speed)  # Track distance traveled backward
+
+        # Additional code to calculate total distance
+        self.total_distance = self.distance_forward - self.distance_backward
 
         # Rotation based on key presses
         if keys[pygame.K_a]:
@@ -213,6 +281,15 @@ class Car:
         for d in range(-90, 120, 45):
             self.check_radar(d, game_map)
 
+        # Check distances to obstacles in specific directions
+        self.check_radar_distances(game_map)
+
+        # Check if any radar distance is less than 20
+        for dist in self.radars:
+            if dist[1] < 15:
+                self.alive = False
+                break
+        
     def rotate_center(self, image, angle):
         rectangle = image.get_rect()
         rotated_image = pygame.transform.rotate(image, angle)
@@ -220,6 +297,44 @@ class Car:
         rotated_rectangle.center = rotated_image.get_rect().center
         rotated_image = rotated_image.subsurface(rotated_rectangle).copy()
         return rotated_image
+
+    def check_radar_distances(self, game_map):
+        radar_distances = {
+            'front': None,
+            'back': None,
+            'left': None,
+            'right': None,
+            'center': None
+        }
+
+        for radar_angle in [-45, 0, 45, 90, 135]:
+            length = 0
+            x = int(self.center[0] + math.cos(math.radians(360 - (self.angle + radar_angle))) * length)
+            y = int(self.center[1] + math.sin(math.radians(360 - (self.angle + radar_angle))) * length)
+
+            while not game_map.get_at((x, y)) == BORDER_COLOR and length < 300:
+                length += 1
+                x = int(self.center[0] + math.cos(math.radians(360 - (self.angle + radar_angle))) * length)
+                y = int(self.center[1] + math.sin(math.radians(360 - (self.angle + radar_angle))) * length)
+
+            dist = int(math.sqrt(math.pow(x - self.center[0], 2) + math.pow(y - self.center[1], 2)))
+            radar_distances[self.get_radar_name(radar_angle)] = dist
+
+        # print("Radar Distances:", radar_distances)
+
+
+    def get_radar_name(self, angle):
+        if angle == -45 or angle == 45:
+            return 'front'
+        elif angle == 0:
+            return 'center'
+        elif angle == 90 or angle == 135:
+            return 'left'
+        elif angle == -90 or angle == -135:
+            return 'right'
+        elif angle == 180:
+            return 'back'
+
 
 def main():
     pygame.init()
@@ -229,24 +344,10 @@ def main():
     game_map = pygame.image.load('map5.png').convert()
     car = Car(game_map)
 
-    # Constants for DQN
-    INPUT_SIZE = 6  # Number of radar coordinates
-    OUTPUT_SIZE = 4  # Number of possible actions (W, A, S, D)
-    CAPACITY = 10000
-    BATCH_SIZE = 32
-    GAMMA = 0.99  # Discount factor
-    TARGET_UPDATE = 10  # Update target network every TARGET_UPDATE steps
-
-    # Initialize DQN model, target model, and optimizer
-    policy_net = DQN(INPUT_SIZE, OUTPUT_SIZE)
-    target_net = DQN(INPUT_SIZE, OUTPUT_SIZE)
-    target_net.load_state_dict(policy_net.state_dict())
-    target_net.eval()
-
-    optimizer = optim.Adam(policy_net.parameters())
-
-    # Initialize replay memory
-    memory = ReplayMemory(CAPACITY)
+    # Initialize DQN agent
+    input_size = 5  # Adjust according to state representation
+    output_size = 3  # Adjust according to the number of actions
+    agent = DQNAgent(input_size, output_size)
 
     running = True
     while running:
@@ -254,24 +355,34 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
-        keys = pygame.key.get_pressed()
-        car.update(game_map, keys)
+        # Get current state
+        state = get_state()  # Implement this function to return the current state
 
-        # TODO: Implement state representation and action selection for DQN
-        
+        # Select action
+        action = agent.select_action(state)
+
+        # Perform action
+        perform_action(action)
+
+        # Get next state and reward
+        next_state = get_state()
+        reward = calculate_reward()
+
+        # Store transition in replay memory
+        agent.memory.append((state, action, next_state, reward))
+
+        # Optimize the model
+        agent.optimize_model()
+
+        # Update the screen
         screen.fill((0, 0, 0))
         screen.blit(game_map, (0, 0))
         car.draw(screen)
-
         pygame.display.flip()
         clock.tick(60)
 
-        if not car.alive:
-            running = False
-
     pygame.quit()
     sys.exit()
-
 
 if __name__ == "__main__":
     main()

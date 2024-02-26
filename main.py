@@ -110,7 +110,7 @@ class Car:
         return intersection_point
 
 
-    def draw(self, screen):
+    def draw(self, screen, respawn_counter):
         rotated_center = (self.position[0] + CAR_SIZE_X / 2, self.position[1] + CAR_SIZE_Y / 2)
         screen.blit(self.rotated_sprite, self.position)
         self.center = rotated_center  # Update center based on rotated position
@@ -128,6 +128,10 @@ class Car:
 
         distance_text = font.render("Total Distance: {:.2f}".format(self.total_distance), True, text_color)
         screen.blit(distance_text, (10, 70))
+        
+        # Render respawn counter on the screen
+        respawn_text = font.render("Respawn Counter: {}".format(respawn_counter), True, text_color)
+        screen.blit(respawn_text, (10, 100))
 
 
     def check_collision(self, game_map):
@@ -274,6 +278,8 @@ def main():
     car = Car(game_map)
 
     running = True
+    respawn_counter = 0  # Counter to keep track of respawn iterations
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -284,16 +290,24 @@ def main():
 
         screen.fill((0, 0, 0))
         screen.blit(game_map, (0, 0))
-        car.draw(screen)
+        car.draw(screen, respawn_counter)  # Pass respawn counter to draw method
 
         pygame.display.flip()
         clock.tick(60)
 
         if not car.alive:
-            running = False
+            respawn_counter += 1
+            print("Car died. Respawned. Iteration:", respawn_counter)
+            car = Car(game_map)  # Respawn the car
+            car.speed_set = True  # Ensure speed is reset
+            car.distance = 0  # Reset distance
+            car.distance_forward = 0  # Reset forward distance
+            car.distance_backward = 0  # Reset backward distance
 
     pygame.quit()
     sys.exit()
+
+
 
 
 if __name__ == "__main__":
