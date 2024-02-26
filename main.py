@@ -54,14 +54,13 @@ class Car:
             self.speed_set = True
 
         if keys[pygame.K_w]:
-            self.angle += 5
+            self.speed += 1
         if keys[pygame.K_s]:
-            self.angle -= 5
+            self.speed -= 1
         if keys[pygame.K_a]:
-            if self.speed - 2 >= 12:
-                self.speed -= 2
+            self.angle += 5
         if keys[pygame.K_d]:
-            self.speed += 2
+            self.angle -= 5
 
         self.rotated_sprite = self.rotate_center(self.sprite, self.angle)
         self.position[0] += math.cos(math.radians(360 - self.angle)) * self.speed
