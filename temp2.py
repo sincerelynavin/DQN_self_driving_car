@@ -8,16 +8,17 @@ HEIGHT = 1080
 CAR_SIZE_X = 60    
 CAR_SIZE_Y = 60
 BORDER_COLOR = (255, 255, 255, 255) # Color To Crash on Hit
-
 class Car:
     def __init__(self):
         self.sprite = pygame.image.load('car.png').convert()
         self.sprite = pygame.transform.scale(self.sprite, (CAR_SIZE_X, CAR_SIZE_Y))
         self.rotated_sprite = self.sprite 
-        self.position = [830, 920] # Starting Position
+        self.position = [830, 920]  # Starting Position
         self.angle = 0
-        self.speed = 0  # Start with 0 speed
-        self.speed_set = False
+        self.velocity = [0, 0]  # Velocity [x, y]
+        self.acceleration = 0.2  # Acceleration rate
+        self.max_speed = 5  # Maximum speed
+        self.friction = 0.1  # Friction coefficient
         self.center = [self.position[0] + CAR_SIZE_X / 2, self.position[1] + CAR_SIZE_Y / 2]
         self.radars = []
         self.drawing_radars = []
@@ -31,7 +32,7 @@ class Car:
     def check_collision(self, game_map):
         self.alive = True
         for point in self.corners:
-            if game_map.get_at((int(point[0]), int(point[1]))) == BORDER_COLOR or game_map.get_at((int(point[0]), int(point[1]))) == (255, 255, 255): # Modified condition to check for white pixel as well
+            if game_map.get_at((int(point[0]), int(point[1]))) == BORDER_COLOR or game_map.get_at((int(point[0]), int(point[1]))) == (255, 255, 255):  # Modified condition to check for white pixel as well
                 self.alive = False
                 break
 
@@ -49,30 +50,45 @@ class Car:
         self.radars.append([(x, y), dist])
 
     def update(self, game_map, keys):
-        if not self.speed_set:
-            self.speed = 0  # Ensure speed starts at 0
-            self.speed_set = True
-
+        # Handle acceleration and deceleration
         if keys[pygame.K_w]:
-            self.speed += 1
+            self.velocity[0] += math.cos(math.radians(360 - self.angle)) * self.acceleration
+            self.velocity[1] += math.sin(math.radians(360 - self.angle)) * self.acceleration
         if keys[pygame.K_s]:
-            self.speed -= 1
+            self.velocity[0] -= math.cos(math.radians(360 - self.angle)) * self.acceleration
+            self.velocity[1] -= math.sin(math.radians(360 - self.angle)) * self.acceleration
+
+        # Apply friction
+        self.velocity[0] *= (1 - self.friction)
+        self.velocity[1] *= (1 - self.friction)
+
+        # Limit speed
+        speed = math.sqrt(self.velocity[0] ** 2 + self.velocity[1] ** 2)
+        if speed > self.max_speed:
+            scale = self.max_speed / speed
+            self.velocity[0] *= scale
+            self.velocity[1] *= scale
+
+        # Update position
+        self.position[0] += self.velocity[0]
+        self.position[1] += self.velocity[1]
+
+        # Ensure the car stays within the boundaries
+        self.position[0] = max(self.position[0], 20)
+        self.position[0] = min(self.position[0], WIDTH - 120)
+        self.position[1] = max(self.position[1], 20)
+        self.position[1] = min(self.position[1], HEIGHT - 120)
+
+        # Update angle based on user input
         if keys[pygame.K_a]:
             self.angle += 5
         if keys[pygame.K_d]:
             self.angle -= 5
 
-        self.rotated_sprite = self.rotate_center(self.sprite, self.angle)
-        self.position[0] += math.cos(math.radians(360 - self.angle)) * self.speed
-        self.position[0] = max(self.position[0], 20)
-        self.position[0] = min(self.position[0], WIDTH - 120)
+        # Keep the angle within the range of 0 to 360 degrees
+        self.angle %= 360
 
-        self.distance += self.speed
-
-        self.position[1] += math.sin(math.radians(360 - self.angle)) * self.speed
-        self.position[1] = max(self.position[1], 20)
-        self.position[1] = min(self.position[1], HEIGHT - 120)
-
+        # Update center and corners
         self.center = [int(self.position[0]) + CAR_SIZE_X / 2, int(self.position[1]) + CAR_SIZE_Y / 2]
         length = 0.5 * CAR_SIZE_X
         left_top = [self.center[0] + math.cos(math.radians(360 - (self.angle + 30))) * length, self.center[1] + math.sin(math.radians(360 - (self.angle + 30))) * length]
@@ -81,18 +97,11 @@ class Car:
         right_bottom = [self.center[0] + math.cos(math.radians(360 - (self.angle + 330))) * length, self.center[1] + math.sin(math.radians(360 - (self.angle + 330))) * length]
         self.corners = [left_top, right_top, left_bottom, right_bottom]
 
+        # Check collision and radar
         self.check_collision(game_map)
         self.radars.clear()
         for d in range(-90, 120, 45):
             self.check_radar(d, game_map)
-
-    def rotate_center(self, image, angle):
-        rectangle = image.get_rect()
-        rotated_image = pygame.transform.rotate(image, angle)
-        rotated_rectangle = rectangle.copy()
-        rotated_rectangle.center = rotated_image.get_rect().center
-        rotated_image = rotated_image.subsurface(rotated_rectangle).copy()
-        return rotated_image
 
 def main():
     pygame.init()

@@ -11,7 +11,7 @@ BORDER_COLOR = (255, 255, 255, 255) # Color To Crash on Hit
 
 class Car:
     def __init__(self):
-        self.sprite = pygame.image.load('car.png').convert()
+        self.sprite = pygame.image.load('car5.png').convert()
         self.sprite = pygame.transform.scale(self.sprite, (CAR_SIZE_X, CAR_SIZE_Y))
         self.rotated_sprite = self.sprite 
         self.position = [830, 920] # Starting Position
@@ -48,32 +48,45 @@ class Car:
         dist = int(math.sqrt(math.pow(x - self.center[0], 2) + math.pow(y - self.center[1], 2)))
         self.radars.append([(x, y), dist])
 
+
     def update(self, game_map, keys):
         if not self.speed_set:
             self.speed = 0  # Ensure speed starts at 0
             self.speed_set = True
 
+        # Acceleration based on key presses
         if keys[pygame.K_w]:
             self.speed += 1
         if keys[pygame.K_s]:
             self.speed -= 1
+
+        # Rotation based on key presses
         if keys[pygame.K_a]:
             self.angle += 5
         if keys[pygame.K_d]:
             self.angle -= 5
 
+        # Apply friction
+        if not keys[pygame.K_w] and not keys[pygame.K_s]:
+            # If neither acceleration key is pressed, apply friction
+            if self.speed > 0:
+                self.speed -= 0.1  # Adjust the friction coefficient as needed
+            elif self.speed < 0:
+                self.speed += 0.1
+
+        # Update position based on speed and angle
         self.rotated_sprite = self.rotate_center(self.sprite, self.angle)
         self.position[0] += math.cos(math.radians(360 - self.angle)) * self.speed
         self.position[0] = max(self.position[0], 20)
         self.position[0] = min(self.position[0], WIDTH - 120)
 
-        self.distance += self.speed
+        self.distance += abs(self.speed)
 
         self.position[1] += math.sin(math.radians(360 - self.angle)) * self.speed
         self.position[1] = max(self.position[1], 20)
         self.position[1] = min(self.position[1], HEIGHT - 120)
 
-        self.center = [int(self.position[0]) + CAR_SIZE_X / 2, int(self.position[1]) + CAR_SIZE_Y / 2]
+        self.center = [int(self.position[0]) + CAR_SIZE_X / 2, int(self.position[1])] 
         length = 0.5 * CAR_SIZE_X
         left_top = [self.center[0] + math.cos(math.radians(360 - (self.angle + 30))) * length, self.center[1] + math.sin(math.radians(360 - (self.angle + 30))) * length]
         right_top = [self.center[0] + math.cos(math.radians(360 - (self.angle + 150))) * length, self.center[1] + math.sin(math.radians(360 - (self.angle + 150))) * length]
