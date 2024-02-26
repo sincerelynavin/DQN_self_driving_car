@@ -47,13 +47,61 @@ class Car:
     def draw_radar(self, screen):
         for radar_info in self.radars:
             radar_pos, _ = radar_info
-            pygame.draw.line(screen, RED_COLOR, self.center, radar_pos, 2)
+            
+            # Find the position where radar line intersects the boundary
+            intersection_point = self.find_intersection_with_boundary(radar_pos, screen)
+            
+            # Render radar distance near the intersection point
+            font = pygame.font.Font(None, 24)
+            text_color = (255, 127, 39)  # White color for text
+            radar_distance_text = font.render("Distance: {}".format(radar_info[1]), True, text_color)
+            screen.blit(radar_distance_text, (intersection_point[0] + 10, intersection_point[1] + 10))  # Adjust position as needed
+
+            # Draw radar line from car center to intersection point
+            pygame.draw.line(screen, RED_COLOR, self.center, intersection_point, 2)
+            
+    def find_intersection_with_boundary(self, radar_pos, screen):
+        # Extract radar position coordinates
+        radar_x, radar_y = radar_pos
+        
+        # Extract screen dimensions
+        screen_width = screen.get_width()
+        screen_height = screen.get_height()
+        
+        # Car center coordinates
+        car_center_x, car_center_y = self.center
+        
+        # Initialize intersection point to radar position
+        intersection_point = radar_pos
+        
+        # Check for intersection with top boundary
+        if radar_y < 0:
+            intersection_point = (car_center_x + (0 - car_center_y) * (radar_x - car_center_x) / (radar_y - car_center_y), 0)
+        # Check for intersection with bottom boundary
+        elif radar_y > screen_height:
+            intersection_point = (car_center_x + (screen_height - car_center_y) * (radar_x - car_center_x) / (radar_y - car_center_y), screen_height)
+        # Check for intersection with left boundary
+        elif radar_x < 0:
+            intersection_point = (0, car_center_y + (0 - car_center_x) * (radar_y - car_center_y) / (radar_x - car_center_x))
+        # Check for intersection with right boundary
+        elif radar_x > screen_width:
+            intersection_point = (screen_width, car_center_y + (screen_width - car_center_x) * (radar_y - car_center_y) / (radar_x - car_center_x))
+        
+        return intersection_point
+
 
     def draw(self, screen):
         rotated_center = (self.position[0] + CAR_SIZE_X / 2, self.position[1] + CAR_SIZE_Y / 2)
         screen.blit(self.rotated_sprite, self.position)
         self.center = rotated_center  # Update center based on rotated position
         self.draw_radar(screen)
+        
+        # Render radar distances on the screen
+        font = pygame.font.Font(None, 36)
+        text_color = (255, 255, 255)  # White color for text
+        radar_distances_text = font.render("Radar Distances: {}".format(self.radars), True, text_color)
+        screen.blit(radar_distances_text, (10, 10))  # Adjust position as needed
+
 
     def check_collision(self, game_map):
         self.alive = True
@@ -118,9 +166,9 @@ class Car:
         left_top = [self.center[0] + math.cos(math.radians(360 - (self.angle + 30))) * length,
                     self.center[1] + math.sin(math.radians(360 - (self.angle + 30))) * length]
         right_top = [self.center[0] + math.cos(math.radians(360 - (self.angle + 150))) * length,
-                     self.center[1] + math.sin(math.radians(360 - (self.angle + 150))) * length]
+                    self.center[1] + math.sin(math.radians(360 - (self.angle + 150))) * length]
         left_bottom = [self.center[0] + math.cos(math.radians(360 - (self.angle + 210))) * length,
-                       self.center[1] + math.sin(math.radians(360 - (self.angle + 210))) * length]
+                    self.center[1] + math.sin(math.radians(360 - (self.angle + 210))) * length]
         right_bottom = [self.center[0] + math.cos(math.radians(360 - (self.angle + 330))) * length,
                         self.center[1] + math.sin(math.radians(360 - (self.angle + 330))) * length]
         self.corners = [left_top, right_top, left_bottom, right_bottom]
@@ -132,6 +180,12 @@ class Car:
 
         # Check distances to obstacles in specific directions
         self.check_radar_distances(game_map)
+
+        # Check if any radar distance is less than 20
+        for dist in self.radars:
+            if dist[1] < 15:
+                self.alive = False
+                break
         
     def rotate_center(self, image, angle):
         rectangle = image.get_rect()
@@ -143,15 +197,14 @@ class Car:
 
     def check_radar_distances(self, game_map):
         radar_distances = {
-            'front-left': None,
-            'front-center': None,
-            'front-right': None,
-            'back-left': None,
-            'back-center': None,
-            'back-right': None
+            'front': None,
+            'back': None,
+            'left': None,
+            'right': None,
+            'center': None
         }
 
-        for radar_angle in [-45, 0, 45, 135, 180, 225]:
+        for radar_angle in [-45, 0, 45, 90, 135]:
             length = 0
             x = int(self.center[0] + math.cos(math.radians(360 - (self.angle + radar_angle))) * length)
             y = int(self.center[1] + math.sin(math.radians(360 - (self.angle + radar_angle))) * length)
@@ -166,19 +219,18 @@ class Car:
 
         print("Radar Distances:", radar_distances)
 
+
     def get_radar_name(self, angle):
-        if angle == -45:
-            return 'front-left'
+        if angle == -45 or angle == 45:
+            return 'front'
         elif angle == 0:
-            return 'front-center'
-        elif angle == 45:
-            return 'front-right'
-        elif angle == 135:
-            return 'back-left'
+            return 'center'
+        elif angle == 90 or angle == 135:
+            return 'left'
+        elif angle == -90 or angle == -135:
+            return 'right'
         elif angle == 180:
-            return 'back-center'
-        elif angle == 225:
-            return 'back-right'
+            return 'back'
 
 
 def main():

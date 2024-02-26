@@ -47,13 +47,61 @@ class Car:
     def draw_radar(self, screen):
         for radar_info in self.radars:
             radar_pos, _ = radar_info
-            pygame.draw.line(screen, RED_COLOR, self.center, radar_pos, 2)
+            
+            # Find the position where radar line intersects the boundary
+            intersection_point = self.find_intersection_with_boundary(radar_pos, screen)
+            
+            # Render radar distance near the intersection point
+            font = pygame.font.Font(None, 24)
+            text_color = (255, 127, 39)  # White color for text
+            radar_distance_text = font.render("Distance: {}".format(radar_info[1]), True, text_color)
+            screen.blit(radar_distance_text, (intersection_point[0] + 10, intersection_point[1] + 10))  # Adjust position as needed
+
+            # Draw radar line from car center to intersection point
+            pygame.draw.line(screen, RED_COLOR, self.center, intersection_point, 2)
+            
+    def find_intersection_with_boundary(self, radar_pos, screen):
+        # Extract radar position coordinates
+        radar_x, radar_y = radar_pos
+        
+        # Extract screen dimensions
+        screen_width = screen.get_width()
+        screen_height = screen.get_height()
+        
+        # Car center coordinates
+        car_center_x, car_center_y = self.center
+        
+        # Initialize intersection point to radar position
+        intersection_point = radar_pos
+        
+        # Check for intersection with top boundary
+        if radar_y < 0:
+            intersection_point = (car_center_x + (0 - car_center_y) * (radar_x - car_center_x) / (radar_y - car_center_y), 0)
+        # Check for intersection with bottom boundary
+        elif radar_y > screen_height:
+            intersection_point = (car_center_x + (screen_height - car_center_y) * (radar_x - car_center_x) / (radar_y - car_center_y), screen_height)
+        # Check for intersection with left boundary
+        elif radar_x < 0:
+            intersection_point = (0, car_center_y + (0 - car_center_x) * (radar_y - car_center_y) / (radar_x - car_center_x))
+        # Check for intersection with right boundary
+        elif radar_x > screen_width:
+            intersection_point = (screen_width, car_center_y + (screen_width - car_center_x) * (radar_y - car_center_y) / (radar_x - car_center_x))
+        
+        return intersection_point
+
 
     def draw(self, screen):
         rotated_center = (self.position[0] + CAR_SIZE_X / 2, self.position[1] + CAR_SIZE_Y / 2)
         screen.blit(self.rotated_sprite, self.position)
         self.center = rotated_center  # Update center based on rotated position
         self.draw_radar(screen)
+        
+        # Render radar distances on the screen
+        font = pygame.font.Font(None, 36)
+        text_color = (255, 255, 255)  # White color for text
+        radar_distances_text = font.render("Radar Distances: {}".format(self.radars), True, text_color)
+        screen.blit(radar_distances_text, (10, 10))  # Adjust position as needed
+
 
     def check_collision(self, game_map):
         self.alive = True
