@@ -18,13 +18,13 @@ This is a simple car game implemented in Python using the Pygame library.
 2. **Navigate to the project directory:**
 
    ```bash
-   cd car-game
+   cd dir
    ```
 
 3. **Run the game:**
 
    ```bash
-   python car_game.py
+   python main.py
    ```
 
 ## Usage
