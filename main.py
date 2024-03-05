@@ -175,6 +175,7 @@ class Car:
                 self.speed -= 0.05  # Adjust the friction coefficient as needed
             elif self.speed < 0:
                 self.speed += 0.05
+                
         # Update position based on speed and angle
         self.rotated_sprite = self.rotate_center(self.sprite, self.angle)
         self.position[0] += math.cos(math.radians(360 - self.angle)) * self.speed
